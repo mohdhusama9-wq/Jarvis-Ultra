@@ -20,7 +20,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@vr
+        uses: android-actions/setup-android@vr4
 
       - name: Install Android SDK Platform
         run: |
