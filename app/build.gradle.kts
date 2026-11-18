@@ -1,0 +1,21 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.jarvise.ultra"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.jarvise.ultra"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
+    }
+}
+
+dependencies {
+    implementation("com.github.msnilsen:openwakeword-android:0.1.0")
+}
