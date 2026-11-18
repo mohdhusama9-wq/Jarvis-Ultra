@@ -1,4 +1,3 @@
-
 package com.jarvise.ultra
 
 import android.app.Service
@@ -11,26 +10,56 @@ import android.os.Build
 import android.os.IBinder
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import com.openwakeword.OpenWakeWord
 import java.util.Locale
 
 class WakeWordService : Service() {
 
+    companion object {
+        private const val TAG = "JARVIS_DEBUG"
+    }
+
     private var detector: OpenWakeWord? = null
     private var tts: TextToSpeech? = null
     private var speaking = false
+    private var ttsReady = false
 
     private val channelId = "jarvise_wake_channel"
 
     override fun onCreate() {
         super.onCreate()
+        Log.i(TAG, "Service created")
+
         createNotificationChannel()
 
         tts = TextToSpeech(this) { result ->
             if (result == TextToSpeech.SUCCESS) {
+                ttsReady = true
                 tts?.language = Locale.US
+                Log.i(TAG, "TTS initialized successfully")
+            } else {
+                Log.e(TAG, "TTS initialization failed: $result")
             }
         }
+
+        tts?.setOnUtteranceProgressListener(
+            object : UtteranceProgressListener() {
+                override fun onStart(id: String?) {
+                    Log.i(TAG, "Speaking started")
+                }
+
+                override fun onDone(id: String?) {
+                    speaking = false
+                    Log.i(TAG, "Speaking completed")
+                }
+
+                override fun onError(id: String?) {
+                    speaking = false
+                    Log.e(TAG, "TTS speaking error")
+                }
+            }
+        )
     }
 
     override fun onStartCommand(
@@ -39,17 +68,24 @@ class WakeWordService : Service() {
         startId: Int
     ): Int {
 
+        Log.i(TAG, "onStartCommand called")
         startForeground(101, buildNotification())
 
         if (detector == null) {
             try {
+                Log.i(TAG, "Creating wake word detector")
+
                 detector = OpenWakeWord.Builder(this)
                     .setModel(OpenWakeWord.BuiltInModel.HEY_JARVIS)
                     .setThreshold(0.5f)
                     .build()
 
-                detector?.start {
-                    if (!speaking) {
+                Log.i(TAG, "Detector created. Starting listener")
+
+                detector?.start { score ->
+                    Log.i(TAG, "HEY JARVIS DETECTED! Score=$score")
+
+                    if (!speaking && ttsReady) {
                         speaking = true
                         tts?.speak(
                             "Hello Boss. JARVIS is listening.",
@@ -57,24 +93,15 @@ class WakeWordService : Service() {
                             null,
                             "jarvis_reply"
                         )
+                    } else {
+                        Log.w(TAG, "TTS not ready or already speaking")
                     }
                 }
 
-                tts?.setOnUtteranceProgressListener(
-                    object : UtteranceProgressListener() {
-                        override fun onStart(id: String?) {}
-
-                        override fun onDone(id: String?) {
-                            speaking = false
-                        }
-
-                        override fun onError(id: String?) {
-                            speaking = false
-                        }
-                    }
-                )
+                Log.i(TAG, "Detector start command sent")
 
             } catch (e: Exception) {
+                Log.e(TAG, "WAKE WORD SERVICE FAILED", e)
                 stopSelf()
             }
         }
@@ -89,6 +116,7 @@ class WakeWordService : Service() {
                 "JARVISE ULTRA",
                 NotificationManager.IMPORTANCE_LOW
             )
+
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
@@ -102,35 +130,28 @@ class WakeWordService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, channelId)
-                .setContentTitle("JARVISE ULTRA ACTIVE")
-                .setContentText("Listening for Hey JARVIS")
-                .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
-                .setContentIntent(pendingIntent)
-                .setOngoing(true)
-                .build()
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-                .setContentTitle("JARVISE ULTRA ACTIVE")
-                .setContentText("Listening for Hey JARVIS")
-                .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
-                .setOngoing(true)
-                .build()
-        }
+        return Notification.Builder(this, channelId)
+            .setContentTitle("JARVISE ULTRA ACTIVE")
+            .setContentText("Listening for Hey JARVIS")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .build()
     }
 
     override fun onDestroy() {
+        Log.i(TAG, "Service destroyed")
+
         detector?.stop()
         detector?.release()
         detector = null
+
         tts?.stop()
         tts?.shutdown()
         tts = null
+
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
-
