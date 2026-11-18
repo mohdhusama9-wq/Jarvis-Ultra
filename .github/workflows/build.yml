@@ -2,7 +2,8 @@ name: JARVISE ULTRA APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -22,17 +23,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4.0.4
 
-      - name: Install Android SDK Platform
-        run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Build APK
-        run: gradle assembleDebug
+        run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
